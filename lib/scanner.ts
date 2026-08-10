@@ -11,25 +11,27 @@ export interface Vulnerability {
   fix: string;
 }
 
-// Scan for prompt injection vulnerabilities
 export async function scanPromptInjection(code: string): Promise<Vulnerability[]> {
-  const response = await openai.chat.completions.create({
-    model: 'gpt-4-turbo-preview',
-    messages: [
-      {
-        role: 'system',
-        content: `You are a security expert. Scan code for prompt injection vulnerabilities.
-        Return JSON array of vulnerabilities with: type, severity, file, line, description, fix.`,
-      },
-      { role: 'user', content: `Scan this code:\n${code}` },
-    ],
-    response_format: { type: 'json_object' },
-  });
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4-turbo-preview',
+      messages: [
+        {
+          role: 'system',
+          content: `You are a security expert. Scan code for prompt injection vulnerabilities.
+          Return JSON array of vulnerabilities with: type, severity, file, line, description, fix.`,
+        },
+        { role: 'user', content: `Scan this code:\n${code}` },
+      ],
+      response_format: { type: 'json_object' },
+    });
 
-  return JSON.parse(response.choices[0].message.content || '[]');
+    return JSON.parse(response.choices[0].message.content || '[]');
+  } catch (error: any) {
+    throw new Error(`Prompt injection scan error: ${error?.status || 500} - ${error?.message || 'Unknown error'}`);
+  }
 }
 
-// Scan for API key exposure
 export async function scanApiKeys(code: string): Promise<Vulnerability[]> {
   const patterns = [
     { regex: /sk-[a-zA-Z0-9]{48}/g, provider: 'OpenAI' },
@@ -41,23 +43,26 @@ export async function scanApiKeys(code: string): Promise<Vulnerability[]> {
   const vulnerabilities: Vulnerability[] = [];
 
   for (const pattern of patterns) {
-    const matches = code.match(pattern.regex);
-    if (matches) {
-      vulnerabilities.push({
-        type: 'api_key_exposure',
-        severity: 'critical',
-        file: 'scanned-file',
-        line: 0,
-        description: `Exposed ${pattern.provider} API key detected`,
-        fix: 'Move API keys to environment variables',
-      });
+    try {
+      const matches = code.match(pattern.regex);
+      if (matches) {
+        vulnerabilities.push({
+          type: 'api_key_exposure',
+          severity: 'critical',
+          file: 'scanned-file',
+          line: 0,
+          description: `Exposed ${pattern.provider} API key detected`,
+          fix: 'Move API keys to environment variables',
+        });
+      }
+    } catch (error) {
+      console.error(`Error scanning for ${pattern.provider} keys:`, error);
     }
   }
 
   return vulnerabilities;
 }
 
-// Scan for data leakage
 export async function scanDataLeakage(code: string): Promise<Vulnerability[]> {
   const piiPatterns = [
     { regex: /\b\d{3}-\d{2}-\d{4}\b/g, type: 'SSN' },
@@ -68,41 +73,48 @@ export async function scanDataLeakage(code: string): Promise<Vulnerability[]> {
   const vulnerabilities: Vulnerability[] = [];
 
   for (const pattern of piiPatterns) {
-    const matches = code.match(pattern.regex);
-    if (matches) {
-      vulnerabilities.push({
-        type: 'data_leakage',
-        severity: 'high',
-        file: 'scanned-file',
-        line: 0,
-        description: `Potential ${pattern.type} in code output`,
-        fix: 'Sanitize AI outputs to remove PII',
-      });
+    try {
+      const matches = code.match(pattern.regex);
+      if (matches) {
+        vulnerabilities.push({
+          type: 'data_leakage',
+          severity: 'high',
+          file: 'scanned-file',
+          line: 0,
+          description: `Potential ${pattern.type} in code output`,
+          fix: 'Sanitize AI outputs to remove PII',
+        });
+      }
+    } catch (error) {
+      console.error(`Error scanning for ${pattern.type}:`, error);
     }
   }
 
   return vulnerabilities;
 }
 
-// Full security scan
 export async function fullSecurityScan(code: string) {
-  const [promptVulns, apiKeyVulns, dataVulns] = await Promise.all([
-    scanPromptInjection(code),
-    scanApiKeys(code),
-    scanDataLeakage(code),
-  ]);
+  try {
+    const [promptVulns, apiKeyVulns, dataVulns] = await Promise.all([
+      scanPromptInjection(code),
+      scanApiKeys(code),
+      scanDataLeakage(code),
+    ]);
 
-  const allVulns = [...promptVulns, ...apiKeyVulns, ...dataVulns];
+    const allVulns = [...promptVulns, ...apiKeyVulns, ...dataVulns];
 
-  return {
-    vulnerabilities: allVulns,
-    summary: {
-      total: allVulns.length,
-      critical: allVulns.filter(v => v.severity === 'critical').length,
-      high: allVulns.filter(v => v.severity === 'high').length,
-      medium: allVulns.filter(v => v.severity === 'medium').length,
-      low: allVulns.filter(v => v.severity === 'low').length,
-    },
-    score: Math.max(0, 100 - allVulns.length * 10),
-  };
+    return {
+      vulnerabilities: allVulns,
+      summary: {
+        total: allVulns.length,
+        critical: allVulns.filter(v => v.severity === 'critical').length,
+        high: allVulns.filter(v => v.severity === 'high').length,
+        medium: allVulns.filter(v => v.severity === 'medium').length,
+        low: allVulns.filter(v => v.severity === 'low').length,
+      },
+      score: Math.max(0, 100 - allVulns.length * 10),
+    };
+  } catch (error: any) {
+    throw new Error(`Security scan error: ${error?.message || 'Unknown error'}`);
+  }
 }
