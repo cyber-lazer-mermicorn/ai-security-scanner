@@ -1,0 +1,25 @@
+{
+  "name": "ai-security-scanner",
+  "version": "1.0.0",
+  "description": "Scan AI apps for security vulnerabilities",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "scan": "tsx lib/scanner.ts"
+  },
+  "dependencies": {
+    "next": "14.1.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "openai": "^4.28.0",
+    "glob": "^10.3.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/react": "^18.2.0",
+    "typescript": "^5.3.0",
+    "tsx": "^4.7.0"
+  }
+}
